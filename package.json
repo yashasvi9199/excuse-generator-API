@@ -1,0 +1,25 @@
+{
+  "name": "excuse-generator-api",
+  "version": "1.0.0",
+  "description": "AI-powered excuse generator API using Google Gemini",
+  "main": "api/index.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "lint": "echo \"No linting configured\""
+  },
+  "keywords": [
+    "excuse",
+    "generator",
+    "gemini",
+    "ai",
+    "api"
+  ],
+  "author": "yashasvi9199",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
