@@ -13,7 +13,7 @@ function validateExcuseInput (req, res, next) {
             success: false,
             error: {
                 code: ERROR.INVALID_INPUT.code,
-                title: Error.INVALID_INPUT.title,
+                title: ERROR.INVALID_INPUT.title,
                 message: 'Situation is required and must be a non-empty string.'
             }
         });
@@ -24,12 +24,47 @@ function validateExcuseInput (req, res, next) {
         return res.body(400).json({
             success: false,
             error: {
-                code: Error.INVALID_INPUT.code,
-                title: Error.INVALID_INPUT.title,
+                code: ERROR.INVALID_INPUT.code,
+                title: ERROR.INVALID_INPUT.title,
                 message: "Situation must not exceed 1000 characters."
             }
         });
     }
 
-    
+    // Validate category if provided
+    if (category && !CATEGORIES.includes(category)) {
+        return res.status(400).json({
+            success: false,
+            error: {
+                code: ERROR.INVALID_INPUT.code,
+                title: ERROR.INVALID_INPUT.title,
+                message: `Invalid category. Must be one of: ${CATEGORIES.join(', ')}`
+            }
+        });
+    }
+
+    // Validate mood if provided
+    if (mood && !MOODS.includes(mood)) {
+        return res.status(400).json({
+            success: false,
+            error: {
+                code: ERROR.INVALID_INPUT.code,
+                title: ERROR.INVALID_INPUT.title,
+                message: `Invalid mood. Must be one of: ${MOODS.join(', ')}`
+            }
+        });
+    }
+
+    // Validate language if provided
+    if (language && typeof language !== 'string') {
+        return res.status(400).json({
+            success: false,
+            error: {
+                code: ERROR.INVALID_INPUT.code,
+                title: ERROR.INVALID_INPUT.title,
+                message: 'Language must be a string.'
+            }
+        });
+    }
+    next();
 }
