@@ -17,6 +17,7 @@
   "author": "yashasvi9199",
   "license": "MIT",
   "dependencies": {
+    "@upstash/redis": "^1.36.2",
     "express": "^4.18.2",
     "node-fetch": "^2.7.0"
   },
