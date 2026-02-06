@@ -6,7 +6,7 @@ const config = require('../config');
  * Health checkpoint
  */
 
-async function healthCheck(res, req) {
+async function healthCheck(req, res) {
     res.status(200).json({
         status: 'ok',
         timestamp: new Date().toISOString(),
