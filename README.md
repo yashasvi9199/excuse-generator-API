@@ -93,6 +93,65 @@ GET /api/models
 GET /api/health
 ```
 
+### 6. Get Excuse History
+```http
+GET /api/history?category=work&mood=funny&timeRange=today&limit=10
+```
+
+**Query Parameters** (all optional):
+
+| Parameter | Type | Options | Description |
+|-----------|------|---------|-------------|
+| `category` | string | work, school, social, family, health, dating, general | Filter by category |
+| `mood` | string | professional, casual, dramatic, funny, sincere, mysterious | Filter by mood |
+| `timeRange` | string | hour, today, week, all | Filter by time |
+| `limit` | number | 1-200 | Max results (default: 50) |
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "excuses": [
+      {
+        "id": "excuse:1738822800000:abc123",
+        "excuses": ["...", "...", "..."],
+        "category": "work",
+        "mood": "professional",
+        "type": "text",
+        "timestamp": 1738822800000,
+        "createdAt": "2024-02-06T10:30:00.000Z"
+      }
+    ],
+    "count": 1,
+    "filters": {
+      "category": "work",
+      "mood": "professional",
+      "timeRange": "today",
+      "limit": 10
+    }
+  }
+}
+```
+
+---
+
+### 7. Get Statistics
+```http
+GET /api/history/stats
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "total": 127,
+    "timestamp": "2024-02-06T10:30:00.000Z"
+  }
+}
+```
+
 ---
 
 ## ❌ Error Responses
