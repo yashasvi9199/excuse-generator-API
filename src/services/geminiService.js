@@ -1,6 +1,9 @@
 const config = require('../config');
 const { ERROR_CODES } = require('../utils/constants');
 
+// fetch for Node.js environment that don't have it
+const fetch = global.fetch || require('node-fetch');
+
 /*
     Call Gemini API for text-based excuse generation
  */
