@@ -1,5 +1,6 @@
 const {buildImagePrompt} = require('../utils/prompts');
 const {callGeminiWithImage, parseGeminiJSON} = require('../services/geminiService');
+const {saveExcuse} = require('../services/redisService');
 
 /**
  * Generate excuses from image/screenshot
@@ -18,6 +19,14 @@ async function generateExcuseFromImage(req, res, next) {
         // Parse JSON response
         const excuses = parseGeminiJSON(response);
 
+        // Save to Redis (non-blocking, don't wait)
+        saveExcuse({
+            excuses,
+            category,
+            mood,
+            type: 'image'
+        }).catch( err => console.error('Failed to save excuse to history: ', err) );
+
         // Return success response
         res.status(200).json({
             success: true,
@@ -29,4 +38,6 @@ async function generateExcuseFromImage(req, res, next) {
     }
 }
 
-module.exports = {generateExcuseFromImage}
+module.exports = {
+    generateExcuseFromImage
+};
