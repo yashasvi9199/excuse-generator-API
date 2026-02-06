@@ -20,7 +20,7 @@ async function generateExcuse(req, res, next) {
 
         // Save to Redis (non-blocking, don't wait)
         saveExcuse({
-            excuse,
+            excuses,
             category,
             mood,
             type: 'text'
