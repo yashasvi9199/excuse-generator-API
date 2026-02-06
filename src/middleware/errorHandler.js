@@ -8,6 +8,7 @@ function errorHandler(err, req, res, next) {
     console.error('Error Occurred: ', {
         message: err.message || err.title,  // A safety precaution or failsafe
         code: err.code,
+        stack: err.stack,
         path: req.path,
         method: req.method,
         timestamp: new Date().toISOString()

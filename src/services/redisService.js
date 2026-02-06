@@ -1,19 +1,32 @@
-const {Redis} = require('@upstash/redis');
+const { Redis } = require('@upstash/redis');
 
-// Initiate Redis Client
+// Initialize Redis client
 const redis = new Redis({
     url: process.env.UPSTASH_REDIS_REST_URL,
     token: process.env.UPSTASH_REDIS_REST_TOKEN,
 });
 
 /**
- * Save excuses to Redis
+ * Test Redis connection
+ */
+async function testConnection() {
+    try {
+        await redis.ping();
+        console.log('Redis connection successful');
+        return true;
+    } catch (error) {
+        console.error('Redis connection failed:', error);
+        return false;
+    }
+}
+
+/**
+ * Save excuse to Redis
  */
 async function saveExcuse(excuseData) {
-    try{
-
+    try {
         const timestamp = Date.now();
-        const excuseId = `excuse:${timestamp}:${Math.random().toString(36).substring(2, 9)}`;
+        const excuseId = `excuse:${timestamp}:${Math.random().toString(36).substr(2, 9)}`;
 
         const record = {
             id: excuseId,
@@ -25,13 +38,15 @@ async function saveExcuse(excuseData) {
             createdAt: new Date(timestamp).toISOString()
         };
 
-        // Save indivisual excuse
+        console.log('Saving excuse to Redis:', { id: excuseId, category: record.category, mood: record.mood });
+
+        // Save individual excuse
         await redis.set(excuseId, JSON.stringify(record));
 
-        // Add to sorted set for time based queries (score = timestamp)
+        // Add to sorted set for time-based queries (score = timestamp)
         await redis.zadd('excuses:timeline', {
             score: timestamp,
-            memberL: excuseId
+            member: excuseId
         });
 
         // Add to category-specific sorted set
@@ -40,16 +55,17 @@ async function saveExcuse(excuseData) {
             member: excuseId
         });
 
-        // Add to mood-specific sorter set
+        // Add to mood-specific sorted set
         await redis.zadd(`excuses:mood:${record.mood}`, {
             score: timestamp,
             member: excuseId
         });
 
+        console.log('Successfully saved excuse to Redis');
         return record;
-
-    }catch(err){
-        console.error('Error saving excuses to Redis:', err);
+    } catch (error) {
+        console.error('Error saving excuse to Redis:', error);
+        // Don't throw - saving to history is non-critical
         return null;
     }
 }
@@ -58,55 +74,57 @@ async function saveExcuse(excuseData) {
  * Query excuses with filters
  */
 async function queryExcuses(filters = {}) {
-    try{
-
+    try {
         const {
             category,
             mood,
-            timeRange = 'all',  // 'hour', 'today', 'week', 'all'
-            limit = 30
+            timeRange = 'all',
+            limit = 50
         } = filters;
+
+        console.log('Querying excuses with filters:', filters);
 
         // Calculate time range
         const now = Date.now();
         let minTimestamp = 0;
 
         switch (timeRange) {
-            case 'hour' :
-                minTimestamp = now - (60 * 60 *1000);   // 1 hour ago
+            case 'hour':
+                minTimestamp = now - (60 * 60 * 1000);
                 break;
-            
             case 'today':
                 const todayStart = new Date();
-                todayStart.setHours(0, 0, 0, 0);    // Since 12 am today
+                todayStart.setHours(0, 0, 0, 0);
                 minTimestamp = todayStart.getTime();
                 break;
-
             case 'week':
-                minTimestamp = now - (7 * 24 * 60 * 60 * 1000)  // 7 days
+                minTimestamp = now - (7 * 24 * 60 * 60 * 1000);
                 break;
-
             default:
-                minTimestamp = 0    // all
+                minTimestamp = 0;
         }
 
         // Determine which sorted set to query
-        let setKey = 'excuse:timeline'
+        let setKey = 'excuses:timeline';
 
         if (category && mood) {
-            setKey = `excuse:category:${category}`;
-        }else if (category) {
-            setKey = `excuse:category:${category}`;
-        }else if (mood) {
-            setKey = `excuse:mood:${mood}`;
+            setKey = `excuses:category:${category}`;
+        } else if (category) {
+            setKey = `excuses:category:${category}`;
+        } else if (mood) {
+            setKey = `excuses:mood:${mood}`;
         }
+
+        console.log('Querying Redis set:', setKey, 'Time range:', minTimestamp, 'to', now);
 
         // Get excuse IDs from sorted set (newest first)
         const excuseIds = await redis.zrange(setKey, minTimestamp, now, {
             byScore: true,
-            rev: true,  // reverese order (newest first)
-            count: limit * 2    // Get more count for failsafe
+            rev: true,
+            count: limit * 2
         });
+
+        console.log('Found excuse IDs:', excuseIds?.length || 0);
 
         if (!excuseIds || excuseIds.length === 0) {
             return [];
@@ -114,56 +132,65 @@ async function queryExcuses(filters = {}) {
 
         // Fetch full excuse data
         const excuses = await Promise.all(
-            excuseIds.map( id => redis.get(id))
+            excuseIds.map(id => redis.get(id))
         );
+
+        console.log('Fetched excuse data:', excuses?.length || 0);
 
         // Parse and filter
         let results = excuses
-            .filter( excuse => excuse !== null)
-            .map( excuse => typeof excuse === 'string' ? JSON.parse(excuse) : excuse);
+            .filter(item => item !== null)
+            .map(item => {
+                if (typeof item === 'string') {
+                    try {
+                        return JSON.parse(item);
+                    } catch (e) {
+                        console.error('Failed to parse excuse:', e);
+                        return null;
+                    }
+                }
+                return item;
+            })
+            .filter(item => item !== null);
 
-        // Additional filtering if both category and mood is specified
+        // Additional filtering if both category and mood specified
         if (category && mood) {
-            results.filter( e => e.mood === mood)
+            results = results.filter(e => e.mood === mood);
         }
 
-        //  Limit results
+        // Limit results
         results = results.slice(0, limit);
 
+        console.log('Returning results:', results.length);
         return results;
-
-    }
-    catch(err){
-        console.error(' Error querying excuses from Redis: ', err);
+    } catch (error) {
+        console.error('Error querying excuses from Redis:', error);
         return [];
     }
 }
 
 /**
- * Get excuses statistics
+ * Get excuse statistics
  */
 async function getExcuseStats() {
-    try{
+    try {
+        const total = await redis.zcard('excuses:timeline');
 
-        const total = await redis.zcard('excuse:timeline');
+        console.log('Total excuses in Redis:', total);
 
         return {
             total: total || 0,
             timestamp: new Date().toISOString()
         };
-
-    }
-    catch(err){
-        console.error('Error getting stats from Redis: ', err);
-        return {
-            total: 0,
-            timestamp: new Date().toISOString()
-        };
+    } catch (error) {
+        console.error('Error getting stats from Redis:', error);
+        return { total: 0, timestamp: new Date().toISOString() };
     }
 }
 
 module.exports = {
     saveExcuse,
     queryExcuses,
-    getExcuseStats
-}
+    getExcuseStats,
+    testConnection
+};
