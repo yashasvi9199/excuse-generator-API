@@ -4,7 +4,7 @@ const router = express.Router();
 const { healthCheck, getCategories, getModels } = require('../controllers/infoController');
 const { generateExcuse } = require('../controllers/excuseController');
 const { generateExcuseFromImage } = require('../controllers/imageController');
-const { getHistory, getStats, debugRedis } = require('../controllers/historyController');
+const { getHistory, getStats, runMigration } = require('../controllers/historyController');
 const { validateExcuseInput, validateImageInput } = require('../middleware/validator');
 
 // Info routes
@@ -19,6 +19,6 @@ router.post('/excuse/image', validateImageInput, generateExcuseFromImage);
 // History routes
 router.get('/history', getHistory);
 router.get('/history/stats', getStats);
-router.get('/history/debug', debugRedis);
+router.get('/history/migrate', runMigration);
 
 module.exports = router;
