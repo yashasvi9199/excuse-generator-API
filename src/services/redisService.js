@@ -160,73 +160,8 @@ async function getExcuseStats() {
   }
 }
 
-/**
- * Migrate existing data to new list format
- */
-async function migrateData() {
-  try {
-    console.log('Starting data migration...');
-    
-    // Scan for all excuse keys
-    const keys = [];
-    let cursor = 0;
-    
-    do {
-      const result = await redis.scan(cursor, { match: 'excuse:*', count: 100 });
-      cursor = result[0];
-      if (result[1]) {
-        keys.push(...result[1]);
-      }
-    } while (cursor !== 0);
-    
-    console.log('Found keys to migrate:', keys.length);
-    
-    if (keys.length === 0) {
-      return { migrated: 0 };
-    }
-    
-    // Get all excuse data with timestamps
-    const excuses = [];
-    for (const key of keys) {
-      const data = await redis.get(key);
-      if (data) {
-        const parsed = typeof data === 'string' ? JSON.parse(data) : data;
-        excuses.push({ key, data: parsed });
-      }
-    }
-    
-    // Sort by timestamp (newest first)
-    excuses.sort((a, b) => (b.data.timestamp || 0) - (a.data.timestamp || 0));
-    
-    // Clear existing lists
-    await redis.del('excuses:list');
-    
-    // Add to main list
-    for (const excuse of excuses) {
-      await redis.rpush('excuses:list', excuse.key);
-      
-      // Add to category list
-      if (excuse.data.category) {
-        await redis.rpush(`excuses:category:${excuse.data.category}`, excuse.key);
-      }
-      
-      // Add to mood list
-      if (excuse.data.mood) {
-        await redis.rpush(`excuses:mood:${excuse.data.mood}`, excuse.key);
-      }
-    }
-    
-    console.log('Migration complete:', excuses.length);
-    return { migrated: excuses.length };
-  } catch (error) {
-    console.error('Migration error:', error);
-    return { migrated: 0, error: error.message };
-  }
-}
-
 module.exports = {
   saveExcuse,
   queryExcuses,
-  getExcuseStats,
-  migrateData
+  getExcuseStats
 };

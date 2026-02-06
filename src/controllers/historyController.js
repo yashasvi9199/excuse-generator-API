@@ -1,4 +1,4 @@
-const { queryExcuses, getExcuseStats, migrateData } = require('../services/redisService');
+const { queryExcuses, getExcuseStats } = require('../services/redisService');
 
 /**
  * Get excuse history with filters
@@ -75,24 +75,7 @@ async function getStats(req, res, next) {
   }
 }
 
-/**
- * Migrate existing data to new format
- */
-async function runMigration(req, res, next) {
-  try {
-    const result = await migrateData();
-
-    res.status(200).json({
-      success: true,
-      data: result
-    });
-  } catch (error) {
-    next(error);
-  }
-}
-
 module.exports = {
   getHistory,
-  getStats,
-  runMigration
+  getStats
 };
