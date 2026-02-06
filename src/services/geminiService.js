@@ -1,11 +1,11 @@
 const config = require('../config');
 const { ERROR_CODES } = require('../utils/constants');
 
-// fetch for Node.js environment that don't have it
+// Polyfill fetch for Node.js environments that don't have it
 const fetch = global.fetch || require('node-fetch');
 
-/*
-    Call Gemini API for text-based excuse generation
+/**
+ * Call Gemini API for text-based excuse generation
  */
 async function callGemini(prompt) {
   const url = `${config.geminiBaseUrl}/${config.geminiModel}:generateContent?key=${config.geminiApiKey}`;
@@ -39,13 +39,16 @@ async function callGemini(prompt) {
 
     return await handleGeminiResponse(response);
   } catch (error) {
+    if (error.code && error.title) {
+      throw error;
+    }
     console.error('Gemini API network error:', error);
     throw ERROR_CODES.GEMINI_ERROR;
   }
 }
 
-/*
-    Call Gemini API with image for excuse generation
+/**
+ * Call Gemini API with image for excuse generation
  */
 async function callGeminiWithImage(prompt, imageBase64, mimeType) {
   const url = `${config.geminiBaseUrl}/${config.geminiModel}:generateContent?key=${config.geminiApiKey}`;
@@ -85,16 +88,18 @@ async function callGeminiWithImage(prompt, imageBase64, mimeType) {
 
     return await handleGeminiResponse(response);
   } catch (error) {
+    if (error.code && error.title) {
+      throw error;
+    }
     console.error('Gemini API network error:', error);
     throw ERROR_CODES.GEMINI_ERROR;
   }
 }
 
-/*
-    Handle Gemini API response and errors
+/**
+ * Handle Gemini API response and errors
  */
 async function handleGeminiResponse(response) {
-  // Handle HTTP errors
   if (response.status === 429) {
     const retryAfter = response.headers.get('Retry-After') || 60;
     const error = { ...ERROR_CODES.RATE_LIMITED, retryAfter: parseInt(retryAfter) };
@@ -120,10 +125,8 @@ async function handleGeminiResponse(response) {
     throw ERROR_CODES.GEMINI_ERROR;
   }
 
-  // Parse successful response
   const data = await response.json();
   
-  // Check for candidates
   const candidate = data.candidates?.[0];
   
   if (!candidate) {
@@ -131,7 +134,6 @@ async function handleGeminiResponse(response) {
     throw ERROR_CODES.INTERNAL_ERROR;
   }
 
-  // Check finish reason
   const finishReason = candidate.finishReason;
   
   if (finishReason === 'SAFETY') {
@@ -147,7 +149,6 @@ async function handleGeminiResponse(response) {
     throw ERROR_CODES.INTERNAL_ERROR;
   }
 
-  // Extract text
   const text = candidate.content?.parts?.[0]?.text;
   
   if (!text) {
@@ -158,8 +159,8 @@ async function handleGeminiResponse(response) {
   return text;
 }
 
-/*
-    List available Gemini models
+/**
+ * List available Gemini models
  */
 async function listModels() {
   const url = `${config.geminiBaseUrl}?key=${config.geminiApiKey}`;
@@ -193,27 +194,82 @@ async function listModels() {
   }
 }
 
-/*
-    Parse JSON response from Gemini (handles markdown code blocks)
+/**
+ * Parse JSON response from Gemini (handles markdown code blocks and malformed responses)
  */
 function parseGeminiJSON(text) {
   try {
-    // Remove markdown code blocks if present
     let cleanText = text.trim();
     
+    // Remove markdown code blocks if present
     if (cleanText.startsWith('```json')) {
-      cleanText = cleanText.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+      cleanText = cleanText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
     } else if (cleanText.startsWith('```')) {
-      cleanText = cleanText.replace(/^```\n?/, '').replace(/\n?```$/, '');
+      cleanText = cleanText.replace(/^```\s*/, '').replace(/\s*```$/, '');
     }
     
-    const parsed = JSON.parse(cleanText.trim());
+    cleanText = cleanText.trim();
     
-    if (!parsed.excuses || !Array.isArray(parsed.excuses)) {
-      throw new Error('Invalid response format');
+    // Try direct JSON parse first
+    try {
+      const parsed = JSON.parse(cleanText);
+      if (parsed.excuses && Array.isArray(parsed.excuses)) {
+        return parsed.excuses;
+      }
+    } catch (e) {
+      // Continue to fallback methods
     }
     
-    return parsed.excuses;
+    // Fallback: Extract JSON object from text
+    const jsonMatch = cleanText.match(/\{[\s\S]*"excuses"[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.excuses && Array.isArray(parsed.excuses)) {
+          return parsed.excuses;
+        }
+      } catch (e) {
+        // Continue to next fallback
+      }
+    }
+    
+    // Fallback: Extract excuses array directly
+    const arrayMatch = cleanText.match(/"excuses"\s*:\s*\[([\s\S]*?)\]/);
+    if (arrayMatch) {
+      try {
+        const excusesArray = JSON.parse('[' + arrayMatch[1] + ']');
+        if (Array.isArray(excusesArray) && excusesArray.length > 0) {
+          return excusesArray;
+        }
+      } catch (e) {
+        // Continue to next fallback
+      }
+    }
+    
+    // Fallback: Extract quoted strings as excuses
+    const quoteMatches = cleanText.match(/"([^"]{10,})"/g);
+    if (quoteMatches && quoteMatches.length >= 1) {
+      const excuses = quoteMatches
+        .map(q => q.slice(1, -1))
+        .filter(e => !e.includes('excuses') && e.length > 10)
+        .slice(0, 3);
+      
+      if (excuses.length > 0) {
+        return excuses;
+      }
+    }
+    
+    // Final fallback: Split by common delimiters
+    const lines = cleanText
+      .split(/\|\|\||[\n\r]+/)
+      .map(line => line.replace(/^[\d\.\-\*]+\s*/, '').trim())
+      .filter(line => line.length > 10 && !line.startsWith('{') && !line.startsWith('"excuses'));
+    
+    if (lines.length > 0) {
+      return lines.slice(0, 3);
+    }
+    
+    throw new Error('Could not extract excuses from response');
   } catch (error) {
     console.error('Failed to parse Gemini JSON response:', error);
     console.error('Raw response:', text);
