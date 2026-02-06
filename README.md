@@ -2,8 +2,10 @@
 
 AI-powered REST API that generates creative, believable excuses using Google Gemini. Generate excuses from text or images in any language.
 
+[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=flat&logo=vercel)](https://vercel.com)
 [![Powered by Gemini](https://img.shields.io/badge/Powered%20by-Google%20Gemini-4285F4?style=flat&logo=google)](https://ai.google.dev/)
 
+**Live API**: `https://excuse-generator-api.vercel.app/api`
 
 ---
 
@@ -15,7 +17,7 @@ AI-powered REST API that generates creative, believable excuses using Google Gem
 - 🎨 **7 categories**: work, school, social, family, health, dating, general
 - 🎭 **6 moods**: professional, casual, dramatic, funny, sincere, mysterious
 - 🖼️ **Image formats**: JPG, PNG, WebP (max 3MB)
-- ⚡ **Fast responses** via Gemini 1.5 Flash
+- ⚡ **Fast responses** via Gemini 2.0 Flash
 
 ---
 
@@ -24,7 +26,7 @@ AI-powered REST API that generates creative, believable excuses using Google Gem
 ### Test the API
 
 ```bash
-curl -X POST https://your-app.vercel.app/api/excuse \
+curl -X POST https://excuse-generator-api.vercel.app/api/excuse \
   -H "Content-Type: application/json" \
   -d '{
     "situation": "I overslept and missed my alarm",
@@ -139,6 +141,7 @@ npm install -g vercel
 
 # Create .env file
 echo "GEMINI_API_KEY=your_key_here" > .env
+echo "GEMINI_MODEL=gemini-2.0-flash-exp" >> .env
 
 # Run development server
 vercel dev
@@ -152,14 +155,16 @@ API runs at `http://localhost:3000/api`
 
 1. Fork this repository
 2. Import to [Vercel](https://vercel.com)
-3. Add environment variable: `GEMINI_API_KEY`
+3. Add environment variables:
+   - `GEMINI_API_KEY` (required)
+   - `GEMINI_MODEL` (optional, default: `gemini-2.0-flash-exp`)
 4. Deploy
 
 ---
 
 ## 📊 Rate Limits
 
-**Gemini 1.5 Flash (Free Tier)**:
+**Gemini 2.0 Flash (Free Tier)**:
 - 15 requests/minute
 - 1,500 requests/day
 - Auto-handled with `429` responses
